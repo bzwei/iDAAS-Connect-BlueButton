@@ -73,20 +73,36 @@
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-netty4-starter</artifactId>
         </dependency>
-        <!--
         <dependency>
             <groupId>org.apache.camel</groupId>
-            <artifactId>camel-amqp-starter</artifactId>
-          </dependency>
-          <dependency>
-            <groupId>org.amqphub.spring</groupId>
-            <artifactId>amqp-10-jms-spring-boot-starter</artifactId>
-          </dependency>
-          <dependency>
-            <groupId>org.messaginghub</groupId>
-            <artifactId>pooled-jms</artifactId>
-          </dependency>
-          -->
+            <artifactId>camel-fhir-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-netty4-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-jetty</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-jackson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-servlet</artifactId>
+            <!-- use the same version as your Camel core version -->
+        </dependency>
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-http</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-netty-http</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
