@@ -19,6 +19,7 @@ package com.redhat.idaas.connect.bluebutton;
 import ca.uhn.fhir.store.IAuditDataStore;
 import org.apache.camel.Exchange;
 import org.apache.camel.LoggingLevel;
+import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.hl7.HL7;
 import org.apache.camel.component.hl7.HL7MLLPNettyDecoderFactory;
@@ -186,5 +187,41 @@ public class CamelConfiguration extends RouteBuilder {
             .wireTap("direct:auditing")
     // Send Data to specific topic
     ;
+
+    //restConfiguration().component("netty-http").host("localhost").port(8000).bindingMode(RestBindingMode.json);
+    //rest().get("/bluebutton").to("direct:start");
+
+    from("servlet://bluebutton)
+        .setHeader("Authorization", simple("Bearer ${header.token}"))
+        .setHeader(Exchange.HTTP_METHOD, constant(org.apache.camel.component.http.HttpMethods.GET))
+        .to("https://sandbox.bluebutton.cms.gov/v1/connect/userinfo?bridgeEndpoint=true")
+        .unmarshal().json()
+        .process(new Processor(){
+          @Override
+          public void process(final Exchange exchange) throws Exception {
+            final Map payload = exchange.getIn().getBody(Map.class);
+            final String fhirId = payload.get("patient").toString();
+            exchange.getIn().setBody(fhirId);
+          }
+        })
+        .setHeader(Exchange.HTTP_METHOD, constant(org.apache.camel.component.http.HttpMethods.GET))
+        .multicast()
+        .to("direct:patient", "direct:coverage", "direct:explanationOfBenefit")
+        .transform().constant("Done");
+
+    from("direct:kafka")
+        .to("kafka:topic_for_bluebutton?brokers=localhost:9092");
+
+    from("direct:patient")
+        .toD("https://sandbox.bluebutton.cms.gov/v1/fhir/Patient/${body}?bridgeEndpoint=true")
+        .to("direct:kafka");
+
+    from("direct:coverage")
+        .toD("https://sandbox.bluebutton.cms.gov/v1/fhir/Coverage/?beneficiary=${body}&bridgeEndpoint=true")
+        .to("direct:kafka");
+
+    from("direct:explanationOfBenefit")
+        .to("https://sandbox.bluebutton.cms.gov/v1/fhir/ExplanationOfBenefit?bridgeEndpoint=true")
+        .to("direct:kafka");    
   }
 }
