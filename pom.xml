@@ -102,16 +102,28 @@
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-netty-http</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-restlet</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-xstream</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+            <version>2.3.2</version>
         </dependency>
         <!-- Added for Camel Kafka -->
         <dependency>
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-kafka</artifactId>
-            <version>2.23.2.fuse-760030-redhat-00001</version>
+          <!--  <version>2.23.2.fuse-760030-redhat-00001</version> -->
         </dependency>
         <!-- Servlet -->
         <dependency>
@@ -126,6 +138,10 @@
     </dependencies>
 
     <repositories>
+        <repository>
+            <id>spring-plugin-repository</id>
+            <url>https://repo.spring.io/plugins-release</url>
+        </repository>
         <repository>
             <id>red-hat-ga-repository</id>
             <url>https://maven.repository.redhat.com/ga</url>

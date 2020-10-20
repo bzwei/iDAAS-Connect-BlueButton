@@ -16,17 +16,24 @@
  */
 package com.redhat.idaas.connect.bluebutton;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.Map;
 import ca.uhn.fhir.store.IAuditDataStore;
 import org.apache.camel.Exchange;
 import org.apache.camel.LoggingLevel;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.builder.SimpleBuilder;
 import org.apache.camel.component.hl7.HL7;
 import org.apache.camel.component.hl7.HL7MLLPNettyDecoderFactory;
 import org.apache.camel.component.hl7.HL7MLLPNettyEncoderFactory;
+import org.apache.camel.component.http.HttpMethods;
+import org.apache.camel.component.jackson.JacksonDataFormat;
 import org.apache.camel.component.kafka.KafkaComponent;
 import org.apache.camel.component.kafka.KafkaEndpoint;
 import org.apache.camel.component.servlet.CamelHttpTransportServlet;
+import org.apache.camel.model.rest.RestBindingMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -188,29 +195,67 @@ public class CamelConfiguration extends RouteBuilder {
     // Send Data to specific topic
     ;
 
-    //restConfiguration().component("netty-http").host("localhost").port(8000).bindingMode(RestBindingMode.json);
-    //rest().get("/bluebutton").to("direct:start");
+    restConfiguration().component("netty-http").host("{{bluebutton.callback.host}}").port("{{bluebutton.callback.port}}").bindingMode(RestBindingMode.json);
 
-    from("servlet://bluebutton)
-        .setHeader("Authorization", simple("Bearer ${header.token}"))
-        .setHeader(Exchange.HTTP_METHOD, constant(org.apache.camel.component.http.HttpMethods.GET))
-        .to("https://sandbox.bluebutton.cms.gov/v1/connect/userinfo?bridgeEndpoint=true")
-        .unmarshal().json()
-        .process(new Processor(){
-          @Override
-          public void process(final Exchange exchange) throws Exception {
-            final Map payload = exchange.getIn().getBody(Map.class);
-            final String fhirId = payload.get("patient").toString();
-            exchange.getIn().setBody(fhirId);
-          }
+    rest()
+        .get("/bluebutton").to("direct:authorize")
+        .get("/{{bluebutton.callback.path}}").to("direct:callback");
+
+    from("direct:authorize")
+        .setHeader("Location", simple("https://sandbox.bluebutton.cms.gov/v1/o/authorize/?response_type=code&client_id={{bluebutton.client.id}}&redirect_uri=http://{{bluebutton.callback.host}}:{{bluebutton.callback.port}}/{{bluebutton.callback.path}}&scope=patient/Patient.read patient/Coverage.read patient/ExplanationOfBenefit.read profile"))
+        .setHeader(Exchange.HTTP_RESPONSE_CODE, simple("302"));
+
+    from("direct:callback")
+        .process(new Processor() {
+            @Override
+            public void process(Exchange exchange) throws Exception {
+                String clientId = SimpleBuilder.simple("${properties:bluebutton.client.id}").evaluate(exchange, String.class);
+                String clientSecret = SimpleBuilder.simple("${properties:bluebutton.client.secret}").evaluate(exchange, String.class);;
+                String code  = exchange.getIn().getHeader("code", String.class);
+                String body = "code=" + code + "&grant_type=authorization_code";
+                String auth = clientId + ":" + clientSecret;
+                String authHeader = "Basic "+ Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+                exchange.getIn().setHeader(Exchange.HTTP_METHOD, "POST");
+                exchange.getIn().setHeader("Authorization", authHeader);
+                exchange.getIn().setHeader("Content-Type", "application/x-www-form-urlencoded");
+                exchange.getIn().setHeader("Content-Length", body.length());
+                exchange.getIn().setBody(body);
+            }
         })
-        .setHeader(Exchange.HTTP_METHOD, constant(org.apache.camel.component.http.HttpMethods.GET))
+        .to("https://sandbox.bluebutton.cms.gov/v1/o/token/?bridgeEndpoint=true")
+        .unmarshal(new JacksonDataFormat(OAuthToken.class))
+        .process(new Processor(){
+            @Override
+            public void process(final Exchange exchange) throws Exception {
+                final OAuthToken payload = exchange.getIn().getBody(OAuthToken.class);
+                exchange.getIn().setBody(payload.getAccess_token());
+            }
+        })
+        .removeHeader("*")
+        .to("direct:start");
+
+    from("direct:start")
+        .setHeader("Authorization", simple("Bearer ${body}"))
+        .transform().constant(null)
+        .setHeader(Exchange.HTTP_METHOD, constant(HttpMethods.GET))
+        .to("https://sandbox.bluebutton.cms.gov/v1/connect/userinfo?bridgeEndpoint=true")
+        .unmarshal(new JacksonDataFormat(Map.class))
+        .process(new Processor(){
+            @Override
+            public void process(final Exchange exchange) throws Exception {
+                final Map payload = exchange.getIn().getBody(Map.class);
+                final String fhirId = payload.get("patient").toString();
+                exchange.getIn().setBody(fhirId);
+            }
+        })
+        .removeHeaders("*", "Authorization")
+        .setHeader(Exchange.HTTP_METHOD, constant(HttpMethods.GET))
         .multicast()
         .to("direct:patient", "direct:coverage", "direct:explanationOfBenefit")
         .transform().constant("Done");
 
     from("direct:kafka")
-        .to("kafka:topic_for_bluebutton?brokers=localhost:9092");
+        .to("kafka:bluebutton?brokers=localhost:9092");
 
     from("direct:patient")
         .toD("https://sandbox.bluebutton.cms.gov/v1/fhir/Patient/${body}?bridgeEndpoint=true")
@@ -222,6 +267,6 @@ public class CamelConfiguration extends RouteBuilder {
 
     from("direct:explanationOfBenefit")
         .to("https://sandbox.bluebutton.cms.gov/v1/fhir/ExplanationOfBenefit?bridgeEndpoint=true")
-        .to("direct:kafka");    
+        .to("direct:kafka");
   }
 }
