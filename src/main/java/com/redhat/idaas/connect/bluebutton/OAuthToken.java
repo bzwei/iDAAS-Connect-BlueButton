@@ -6,6 +6,9 @@ public class OAuthToken {
     private String token_type;
     private String scope;
     private String refresh_token;
+    private String bluebuttonHost;
+
+
 
     public String getAccess_token() {
         return access_token;

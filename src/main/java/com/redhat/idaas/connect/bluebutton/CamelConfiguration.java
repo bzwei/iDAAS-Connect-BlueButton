@@ -36,6 +36,7 @@ import org.apache.camel.component.servlet.CamelHttpTransportServlet;
 import org.apache.camel.model.rest.RestBindingMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 //import org.springframework.jms.connection.JmsTransactionManager;
 //import javax.jms.ConnectionFactory;
@@ -48,6 +49,8 @@ import org.springframework.stereotype.Component;
 public class CamelConfiguration extends RouteBuilder {
   private static final Logger log = LoggerFactory.getLogger(CamelConfiguration.class);
 
+  //@Autowired
+  //private ConfigProperties config;
 
   @Bean
   private KafkaEndpoint kafkaEndpoint(){
